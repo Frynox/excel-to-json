@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel to JSON Converter</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Excel to JSON Converter</h1>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" id="excelFile" name="excel" accept=".xlsx, .xls" required />
+            <button type="submit">Cargar y Seleccionar Columnas</button>
+        </form>
+
+        <div id="columnSelection" style="display:none;">
+            <h3>Selecciona las columnas que deseas convertir:</h3>
+            <form id="convertForm">
+                <div id="columnsContainer"></div>
+                <button type="submit">Convertir a JSON</button>
+            </form>
+        </div>
+
+        <!-- Barra de progreso -->
+        <div id="progressContainer" style="display: none;">
+            <h3>Convirtiendo...</h3>
+            <div id="progressBar">
+                <div id="progress"></div>
+            </div>
+        </div>
+
+        <!-- Botón de descarga -->
+        <a id="downloadLink" style="display:none;" href="#" download>Descargar Archivo JSON</a>
+
+        <pre id="output"></pre>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+
+            // Enviar el archivo para obtener los nombres de las columnas
+            const response = await fetch('/get-columns', {
+                method: 'POST',
+                body: formData
+            });
+
+            const columns = await response.json();
+
+            // Mostrar las columnas para seleccionar
+            const columnsContainer = document.getElementById('columnsContainer');
+            columnsContainer.innerHTML = '';
+            columns.forEach(column => {
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = 'selectedColumns';
+                checkbox.value = column;
+
+                const label = document.createElement('label');
+                label.textContent = column;
+
+                const div = document.createElement('div');
+                div.appendChild(checkbox);
+                div.appendChild(label);
+
+                columnsContainer.appendChild(div);
+            });
+
+            document.getElementById('columnSelection').style.display = 'block';
+        });
+
+        document.getElementById('convertForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            // Mostrar la barra de progreso
+            document.getElementById('progressContainer').style.display = 'block';
+            const progressElement = document.getElementById('progress');
+
+            // Simular una carga progresiva
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 10;
+                progressElement.style.width = progress + '%';
+                if (progress >= 100) {
+                    clearInterval(interval);
+                }
+            }, 300);
+
+            const selectedColumns = Array.from(document.querySelectorAll('input[name="selectedColumns"]:checked')).map(checkbox => checkbox.value);
+            const fileInput = document.getElementById('excelFile').files[0];
+
+            const formData = new FormData();
+            formData.append('excel', fileInput);
+            formData.append('selectedColumns', JSON.stringify(selectedColumns));
+
+            const response = await fetch('/convert', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            document.getElementById('output').textContent = JSON.stringify(result.data, null, 4);
+
+            // Mostrar el enlace de descarga
+            const downloadLink = document.getElementById('downloadLink');
+            downloadLink.href = result.downloadLink;
+            downloadLink.style.display = 'inline-block';
+
+            // Ocultar la barra de progreso y restablecerla
+            document.getElementById('progressContainer').style.display = 'none';
+            progressElement.style.width = '0%';
+        });
+    </script>
+</body>
+</html>
